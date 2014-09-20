@@ -25,6 +25,10 @@
  *			- Stream start/stop with ADC values implemented.
  * Date:	13-09-2014 00:15 - version - 1.3
  *			- Burst mode implemented.
+ * Date:	18-09-2014 22:04
+ *			- Dual trace mode started implementing
+ * Date:	20-09-2014 01:11 - version - 1.4
+ *			- Dual trace mode with both burst and continuous modes is implemented
  ******************************************************************************/
 
 
@@ -33,6 +37,7 @@
  */
 
 
+#include "stdint.h"
 #include "inc/hw_types.h"
 #include "inc/hw_memmap.h"
 #include "driverlib/sysctl.h"
@@ -50,9 +55,9 @@
 #include "driverlib/rom.h"
 
 #define KBytes 1024
-#define BURST_DATA_SIZE 6 * KBytes			// Memory Depth
-unsigned int burstData[BURST_DATA_SIZE];
-unsigned int burstDataCounter;
+#define BURST_DATA_SIZE 16100 		// (~15.7 * KBytes)	// Memory Depth
+uint16_t burstData[BURST_DATA_SIZE];
+uint16_t burstDataCounter;
 
 //These are OPTIONAL. These are just for debuging purpose that I can see that some thing is going on board.
 #define LED_RED		2
@@ -78,11 +83,15 @@ bool sendStream = false;
 bool burstMode = false;
 
 #define Transmit() {UARTCharPut(UART0_BASE, TXByte);}
-unsigned char TXByte;		// Value sent over UART when Transmit() is called
-unsigned char RXByte;		// Value recieved once hasRecieved is set
+volatile unsigned char TXByte;		// Value sent over UART when Transmit() is called
+volatile unsigned char RXByte;		// Value recieved once hasRecieved is set
 
-unsigned long ulADCValue;
-#define ADC_SEQUENCER	3
+unsigned long int ulADC_0_Value;
+unsigned long int ulADC_1_Value;
+#define ADC_0_SEQUENCER	3
+#define ADC_1_SEQUENCER 3
+
+bool enableDualChannel = true;
 
 
 void InitADC(){
@@ -93,54 +102,98 @@ void InitADC(){
 	ADCHardwareOversampleConfigure(ADC0_BASE, 8);
 	ADCReferenceSet(ADC0_BASE, ADC_REF_INT);
 
-	ADCSequenceDisable(ADC0_BASE, ADC_SEQUENCER);
-	ADCSequenceConfigure(ADC0_BASE, ADC_SEQUENCER, ADC_TRIGGER_PROCESSOR, 0);
-	ADCSequenceStepConfigure(ADC0_BASE, ADC_SEQUENCER, 0, ADC_CTL_CH0 | ADC_CTL_IE | ADC_CTL_END);
-	ADCSequenceEnable(ADC0_BASE, ADC_SEQUENCER);
+	ADCSequenceDisable(ADC0_BASE, ADC_0_SEQUENCER);
+	ADCSequenceConfigure(ADC0_BASE, ADC_0_SEQUENCER, ADC_TRIGGER_PROCESSOR, 0);
+	ADCSequenceStepConfigure(ADC0_BASE, ADC_0_SEQUENCER, 0, ADC_CTL_CH0 | ADC_CTL_IE | ADC_CTL_END);
+	ADCSequenceEnable(ADC0_BASE, ADC_0_SEQUENCER);
 
-	ADCIntClear(ADC0_BASE, ADC_SEQUENCER);
-	ADCIntEnable(ADC0_BASE, ADC_SEQUENCER);
+
+	if(enableDualChannel){
+		SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC1);
+		//GPIOPinTypeADC(GPIO_PORTE_BASE, GPIO_PIN_3); // Not sure why this throws an exception with my Stellaris Launchpad.
+		SysCtlPeripheralReset(SYSCTL_PERIPH_ADC1);
+		SysCtlADCSpeedSet(SYSCTL_ADCSPEED_1MSPS);
+		ADCHardwareOversampleConfigure(ADC1_BASE, 8);
+		ADCReferenceSet(ADC1_BASE, ADC_REF_INT);
+
+		ADCSequenceDisable(ADC1_BASE, ADC_1_SEQUENCER);
+		ADCSequenceConfigure(ADC1_BASE, ADC_1_SEQUENCER, ADC_TRIGGER_PROCESSOR, 0);
+		ADCSequenceStepConfigure(ADC1_BASE, ADC_1_SEQUENCER, 0, ADC_CTL_CH1 | ADC_CTL_IE | ADC_CTL_END);
+		ADCSequenceEnable(ADC1_BASE, ADC_1_SEQUENCER);
+	}
+
+
+	ADCIntClear(ADC0_BASE, ADC_0_SEQUENCER);
+	ADCIntEnable(ADC0_BASE, ADC_0_SEQUENCER);
+
+	if(enableDualChannel){
+		ADCIntClear(ADC1_BASE, ADC_1_SEQUENCER);
+		ADCIntEnable(ADC1_BASE, ADC_1_SEQUENCER);
+	}
 }
 
 void Send_BurstData(){
-	unsigned int i;
+	uint16_t i;
+	unsigned long int adcVal;
 
-	unsigned long adcVal;
 	LEDOn_Red();
 	for (i = 0; i < BURST_DATA_SIZE; i++)
 	{
 		adcVal = burstData[i];
 		TXByte = adcVal & 0x00FF;			// Set TXByte to the lower 8 bits
 		Transmit();							// Send
-		TXByte = (adcVal >> 8) && 0x00FF;	// Set TXByte to the upper 8 bits
+		TXByte = (adcVal >> 8) & 0x00FF;	// Set TXByte to the upper 8 bits
 		Transmit();							// Send
+
+		// Speed is not an important but memeory, so use burstData[i] multiple times instead of storing into an extra variable
+		/*
+		TXByte = burstData[i] & 0x00FF;			// Set TXByte to the lower 8 bits
+		Transmit();								// Send
+		TXByte = (burstData[i] >> 8) & 0x00FF;	// Set TXByte to the upper 8 bits
+		Transmit();								// Send
+		*/
 	}
 	LEDOff_Red();
 }
 
 void Start_Stream(){
 	sendStream = true;
-	ADCSequenceEnable(ADC0_BASE, ADC_SEQUENCER);
+	ADCSequenceEnable(ADC0_BASE, ADC_0_SEQUENCER);
+	if(enableDualChannel)
+		ADCSequenceEnable(ADC1_BASE, ADC_1_SEQUENCER);
 
-	ADCIntClear(ADC0_BASE, ADC_SEQUENCER);
-	ADCIntEnable(ADC0_BASE, ADC_SEQUENCER);
+	ADCIntClear(ADC0_BASE, ADC_0_SEQUENCER);
+	if(enableDualChannel)
+		ADCIntClear(ADC1_BASE, ADC_1_SEQUENCER);
 
-	IntEnable(INT_ADC0SS3);	 // Turn on Sequence Interrupts for Sequence 3
+	ADCIntEnable(ADC0_BASE, ADC_0_SEQUENCER);
+	if(enableDualChannel)
+		ADCIntEnable(ADC1_BASE, ADC_1_SEQUENCER);
 
-	ADCProcessorTrigger(ADC0_BASE, ADC_SEQUENCER);
+	IntEnable(INT_ADC0SS3);	 // Turn on Sequence Interrupts for Sequence 3 for ADC0 module
+	if(enableDualChannel)
+		IntEnable(INT_ADC1SS3);	 // Turn on Sequence Interrupts for Sequence 3 for ADC1 module
+
+	ADCProcessorTrigger(ADC0_BASE, ADC_0_SEQUENCER);
+	if(enableDualChannel)
+		ADCProcessorTrigger(ADC1_BASE, ADC_1_SEQUENCER);
 	LEDOn_Red();
 }
 
 void Stop_Stream(){
 	sendStream = false;
-	ADCSequenceDisable(ADC0_BASE, ADC_SEQUENCER);
+	ADCSequenceDisable(ADC0_BASE, ADC_0_SEQUENCER);
+	if(enableDualChannel)
+		ADCSequenceDisable(ADC1_BASE, ADC_1_SEQUENCER);
 
 	IntDisable(INT_ADC0SS3);
+	if(enableDualChannel)
+		IntDisable(INT_ADC1SS3);
 	LEDOff_Red();
 }
 
 /*
- * ADC Sequence 0 interrupt handler.
+ * ADC_0 Sequence 3 interrupt handler.
  *
  * Check running mode
  * 	1. Continuous mode
@@ -148,13 +201,13 @@ void Stop_Stream(){
  * 	2. Burst mode
  * 		Store ADC value in memory. Once samples count reaches BURST_DATA_SIZE then send entire data to requester.
  */
-void ADC_S0_IntHandler(void){
-	ADCSequenceDisable(ADC0_BASE, ADC_SEQUENCER);
-	ADCIntClear(ADC0_BASE, ADC_SEQUENCER);
-	ADCSequenceDataGet(ADC0_BASE, ADC_SEQUENCER, &ulADCValue);
+void ADC_0_S3_IntHandler(void){
+	ADCSequenceDisable(ADC0_BASE, ADC_0_SEQUENCER);
+	ADCIntClear(ADC0_BASE, ADC_0_SEQUENCER);
+	ADCSequenceDataGet(ADC0_BASE, ADC_0_SEQUENCER, &ulADC_0_Value);
 
 	if(burstMode){
-		burstData[burstDataCounter++] = ulADCValue;
+		burstData[burstDataCounter++] = 0x8000 | ulADC_0_Value;
 		if(burstDataCounter >= BURST_DATA_SIZE){
 			LEDOff_Blue();
 			burstMode = false;
@@ -162,25 +215,66 @@ void ADC_S0_IntHandler(void){
 			Send_BurstData();
 		}
 	}else{
-		TXByte = ulADCValue & 0x00FF;			// Set TXByte
-		Transmit();								// Send
-		TXByte = (ulADCValue >> 8) && 0x00FF;	// Set TXByte to the upper 8 bits
+		TXByte = ulADC_0_Value & 0x00FF;						// Set TXByte
+		Transmit();												// Send
+		TXByte = 0b10000000 | ((ulADC_0_Value >> 8) & 0x00FF);	// Set TXByte to the upper 8 bits
 		Transmit();
 	}
 
 	if(sendStream){
-		ADCSequenceEnable(ADC0_BASE, ADC_SEQUENCER);
-		ADCProcessorTrigger(ADC0_BASE, ADC_SEQUENCER);
+		ADCSequenceEnable(ADC0_BASE, ADC_0_SEQUENCER);
+		ADCProcessorTrigger(ADC0_BASE, ADC_0_SEQUENCER);
 	}
 }
 
+/*
+ * ADC_1 Sequence 3 interrupt handler.
+ *
+ * Check running mode
+ * 	1. Continuous mode
+ * 		Send ADC value immediately to requester(host application).
+ * 	2. Burst mode
+ * 		Store ADC value in memory. Once samples count reaches BURST_DATA_SIZE then send entire data to requester.
+ */
+void ADC_1_S3_IntHandler(void){
+	ADCSequenceDisable(ADC1_BASE, ADC_1_SEQUENCER);
+	ADCIntClear(ADC1_BASE, ADC_1_SEQUENCER);
+	ADCSequenceDataGet(ADC1_BASE, ADC_1_SEQUENCER, &ulADC_1_Value);
+
+	if(burstMode){
+		burstData[burstDataCounter++] = 0x4000 | ulADC_1_Value;
+		if(burstDataCounter >= BURST_DATA_SIZE){
+			LEDOff_Blue();
+			burstMode = false;
+			Stop_Stream();
+			Send_BurstData();
+		}
+	}else{
+		TXByte = ulADC_1_Value & 0x00FF;							// Set TXByte
+		Transmit();													// Send
+		TXByte = 0b01000000 | ((ulADC_0_Value >> 8) & 0x00FF);		// Set TXByte to the upper 8 bits
+		Transmit();
+	}
+
+	if(sendStream){
+		ADCSequenceEnable(ADC1_BASE, ADC_1_SEQUENCER);
+		ADCProcessorTrigger(ADC1_BASE, ADC_1_SEQUENCER);
+	}
+}
+
+void ADC_0_S2_IntHandler(void){return;}
+void ADC_0_S1_IntHandler(void){return;}
+void ADC_0_S0_IntHandler(void){return;}
+void ADC_1_S2_IntHandler(void){return;}
+void ADC_1_S1_IntHandler(void){return;}
+void ADC_1_S0_IntHandler(void){return;}
 
 /**
  * Handles the received byte and calls the needed functions.
  **/
 void Receive()
 {
-	unsigned int i;
+	uint16_t i;
 
 	switch(RXByte)			// Switch depending on command value received
 	{
