@@ -64,10 +64,10 @@ uint16_t burstDataCounter;
 #define LED_BLUE	4
 #define LED_GREEN	8
 
-#define LEDOn_Red() 	{GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, GPIO_PIN_1);}
-#define LEDOff_Red()	{GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, ~GPIO_PIN_1);}
-#define LEDOn_Blue()	{GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, GPIO_PIN_2);}
-#define LEDOff_Blue()	{GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, ~GPIO_PIN_2);}
+#define LEDOn_Red() 	{ROM_GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, GPIO_PIN_1);}
+#define LEDOff_Red()	{ROM_GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, ~GPIO_PIN_1);}
+#define LEDOn_Blue()	{ROM_GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, GPIO_PIN_2);}
+#define LEDOff_Blue()	{ROM_GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, ~GPIO_PIN_2);}
 
 
 // ASCII values for the commands
@@ -82,7 +82,7 @@ uint16_t burstDataCounter;
 bool sendStream = false;
 bool burstMode = false;
 
-#define Transmit() {UARTCharPut(UART0_BASE, TXByte);}
+#define Transmit() {ROM_UARTCharPut(UART0_BASE, TXByte);}
 volatile unsigned char TXByte;		// Value sent over UART when Transmit() is called
 volatile unsigned char RXByte;		// Value recieved once hasRecieved is set
 
@@ -95,40 +95,40 @@ bool enableDualChannel = true;
 
 
 void InitADC(){
-	SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
+	ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC0);
     //GPIOPinTypeADC(GPIO_PORTE_BASE, GPIO_PIN_3); // Not sure why this throws an exception with my Stellaris Launchpad.
-	SysCtlPeripheralReset(SYSCTL_PERIPH_ADC0);
-	SysCtlADCSpeedSet(SYSCTL_ADCSPEED_1MSPS);
-	ADCHardwareOversampleConfigure(ADC0_BASE, 8);
-	ADCReferenceSet(ADC0_BASE, ADC_REF_INT);
+	ROM_SysCtlPeripheralReset(SYSCTL_PERIPH_ADC0);
+	ROM_SysCtlADCSpeedSet(SYSCTL_ADCSPEED_1MSPS);
+	ROM_ADCHardwareOversampleConfigure(ADC0_BASE, 8);
+	ROM_ADCReferenceSet(ADC0_BASE, ADC_REF_INT);
 
-	ADCSequenceDisable(ADC0_BASE, ADC_0_SEQUENCER);
-	ADCSequenceConfigure(ADC0_BASE, ADC_0_SEQUENCER, ADC_TRIGGER_PROCESSOR, 0);
-	ADCSequenceStepConfigure(ADC0_BASE, ADC_0_SEQUENCER, 0, ADC_CTL_CH0 | ADC_CTL_IE | ADC_CTL_END);
-	ADCSequenceEnable(ADC0_BASE, ADC_0_SEQUENCER);
+	ROM_ADCSequenceDisable(ADC0_BASE, ADC_0_SEQUENCER);
+	ROM_ADCSequenceConfigure(ADC0_BASE, ADC_0_SEQUENCER, ADC_TRIGGER_PROCESSOR, 0);
+	ROM_ADCSequenceStepConfigure(ADC0_BASE, ADC_0_SEQUENCER, 0, ADC_CTL_CH0 | ADC_CTL_IE | ADC_CTL_END);
+	ROM_ADCSequenceEnable(ADC0_BASE, ADC_0_SEQUENCER);
 
 
 	if(enableDualChannel){
-		SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC1);
+		ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_ADC1);
 		//GPIOPinTypeADC(GPIO_PORTE_BASE, GPIO_PIN_3); // Not sure why this throws an exception with my Stellaris Launchpad.
-		SysCtlPeripheralReset(SYSCTL_PERIPH_ADC1);
-		SysCtlADCSpeedSet(SYSCTL_ADCSPEED_1MSPS);
-		ADCHardwareOversampleConfigure(ADC1_BASE, 8);
-		ADCReferenceSet(ADC1_BASE, ADC_REF_INT);
+		ROM_SysCtlPeripheralReset(SYSCTL_PERIPH_ADC1);
+		ROM_SysCtlADCSpeedSet(SYSCTL_ADCSPEED_1MSPS);
+		ROM_ADCHardwareOversampleConfigure(ADC1_BASE, 8);
+		ROM_ADCReferenceSet(ADC1_BASE, ADC_REF_INT);
 
-		ADCSequenceDisable(ADC1_BASE, ADC_1_SEQUENCER);
-		ADCSequenceConfigure(ADC1_BASE, ADC_1_SEQUENCER, ADC_TRIGGER_PROCESSOR, 0);
-		ADCSequenceStepConfigure(ADC1_BASE, ADC_1_SEQUENCER, 0, ADC_CTL_CH1 | ADC_CTL_IE | ADC_CTL_END);
-		ADCSequenceEnable(ADC1_BASE, ADC_1_SEQUENCER);
+		ROM_ADCSequenceDisable(ADC1_BASE, ADC_1_SEQUENCER);
+		ROM_ADCSequenceConfigure(ADC1_BASE, ADC_1_SEQUENCER, ADC_TRIGGER_PROCESSOR, 0);
+		ROM_ADCSequenceStepConfigure(ADC1_BASE, ADC_1_SEQUENCER, 0, ADC_CTL_CH1 | ADC_CTL_IE | ADC_CTL_END);
+		ROM_ADCSequenceEnable(ADC1_BASE, ADC_1_SEQUENCER);
 	}
 
 
-	ADCIntClear(ADC0_BASE, ADC_0_SEQUENCER);
-	ADCIntEnable(ADC0_BASE, ADC_0_SEQUENCER);
+	ROM_ADCIntClear(ADC0_BASE, ADC_0_SEQUENCER);
+	ROM_ADCIntEnable(ADC0_BASE, ADC_0_SEQUENCER);
 
 	if(enableDualChannel){
-		ADCIntClear(ADC1_BASE, ADC_1_SEQUENCER);
-		ADCIntEnable(ADC1_BASE, ADC_1_SEQUENCER);
+		ROM_ADCIntClear(ADC1_BASE, ADC_1_SEQUENCER);
+		ROM_ADCIntEnable(ADC1_BASE, ADC_1_SEQUENCER);
 	}
 }
 
@@ -158,37 +158,37 @@ void Send_BurstData(){
 
 void Start_Stream(){
 	sendStream = true;
-	ADCSequenceEnable(ADC0_BASE, ADC_0_SEQUENCER);
+	ROM_ADCSequenceEnable(ADC0_BASE, ADC_0_SEQUENCER);
 	if(enableDualChannel)
-		ADCSequenceEnable(ADC1_BASE, ADC_1_SEQUENCER);
+		ROM_ADCSequenceEnable(ADC1_BASE, ADC_1_SEQUENCER);
 
-	ADCIntClear(ADC0_BASE, ADC_0_SEQUENCER);
+	ROM_ADCIntClear(ADC0_BASE, ADC_0_SEQUENCER);
 	if(enableDualChannel)
-		ADCIntClear(ADC1_BASE, ADC_1_SEQUENCER);
+		ROM_ADCIntClear(ADC1_BASE, ADC_1_SEQUENCER);
 
-	ADCIntEnable(ADC0_BASE, ADC_0_SEQUENCER);
+	ROM_ADCIntEnable(ADC0_BASE, ADC_0_SEQUENCER);
 	if(enableDualChannel)
-		ADCIntEnable(ADC1_BASE, ADC_1_SEQUENCER);
+		ROM_ADCIntEnable(ADC1_BASE, ADC_1_SEQUENCER);
 
-	IntEnable(INT_ADC0SS3);	 // Turn on Sequence Interrupts for Sequence 3 for ADC0 module
+	ROM_IntEnable(INT_ADC0SS3);	 // Turn on Sequence Interrupts for Sequence 3 for ADC0 module
 	if(enableDualChannel)
-		IntEnable(INT_ADC1SS3);	 // Turn on Sequence Interrupts for Sequence 3 for ADC1 module
+		ROM_IntEnable(INT_ADC1SS3);	 // Turn on Sequence Interrupts for Sequence 3 for ADC1 module
 
-	ADCProcessorTrigger(ADC0_BASE, ADC_0_SEQUENCER);
+	ROM_ADCProcessorTrigger(ADC0_BASE, ADC_0_SEQUENCER);
 	if(enableDualChannel)
-		ADCProcessorTrigger(ADC1_BASE, ADC_1_SEQUENCER);
+		ROM_ADCProcessorTrigger(ADC1_BASE, ADC_1_SEQUENCER);
 	LEDOn_Red();
 }
 
 void Stop_Stream(){
 	sendStream = false;
-	ADCSequenceDisable(ADC0_BASE, ADC_0_SEQUENCER);
+	ROM_ADCSequenceDisable(ADC0_BASE, ADC_0_SEQUENCER);
 	if(enableDualChannel)
-		ADCSequenceDisable(ADC1_BASE, ADC_1_SEQUENCER);
+		ROM_ADCSequenceDisable(ADC1_BASE, ADC_1_SEQUENCER);
 
-	IntDisable(INT_ADC0SS3);
+	ROM_IntDisable(INT_ADC0SS3);
 	if(enableDualChannel)
-		IntDisable(INT_ADC1SS3);
+		ROM_IntDisable(INT_ADC1SS3);
 	LEDOff_Red();
 }
 
@@ -202,9 +202,9 @@ void Stop_Stream(){
  * 		Store ADC value in memory. Once samples count reaches BURST_DATA_SIZE then send entire data to requester.
  */
 void ADC_0_S3_IntHandler(void){
-	ADCSequenceDisable(ADC0_BASE, ADC_0_SEQUENCER);
-	ADCIntClear(ADC0_BASE, ADC_0_SEQUENCER);
-	ADCSequenceDataGet(ADC0_BASE, ADC_0_SEQUENCER, &ulADC_0_Value);
+	ROM_ADCSequenceDisable(ADC0_BASE, ADC_0_SEQUENCER);
+	ROM_ADCIntClear(ADC0_BASE, ADC_0_SEQUENCER);
+	ROM_ADCSequenceDataGet(ADC0_BASE, ADC_0_SEQUENCER, &ulADC_0_Value);
 
 	if(burstMode){
 		burstData[burstDataCounter++] = 0x8000 | ulADC_0_Value;
@@ -222,8 +222,8 @@ void ADC_0_S3_IntHandler(void){
 	}
 
 	if(sendStream){
-		ADCSequenceEnable(ADC0_BASE, ADC_0_SEQUENCER);
-		ADCProcessorTrigger(ADC0_BASE, ADC_0_SEQUENCER);
+		ROM_ADCSequenceEnable(ADC0_BASE, ADC_0_SEQUENCER);
+		ROM_ADCProcessorTrigger(ADC0_BASE, ADC_0_SEQUENCER);
 	}
 }
 
@@ -237,9 +237,9 @@ void ADC_0_S3_IntHandler(void){
  * 		Store ADC value in memory. Once samples count reaches BURST_DATA_SIZE then send entire data to requester.
  */
 void ADC_1_S3_IntHandler(void){
-	ADCSequenceDisable(ADC1_BASE, ADC_1_SEQUENCER);
-	ADCIntClear(ADC1_BASE, ADC_1_SEQUENCER);
-	ADCSequenceDataGet(ADC1_BASE, ADC_1_SEQUENCER, &ulADC_1_Value);
+	ROM_ADCSequenceDisable(ADC1_BASE, ADC_1_SEQUENCER);
+	ROM_ADCIntClear(ADC1_BASE, ADC_1_SEQUENCER);
+	ROM_ADCSequenceDataGet(ADC1_BASE, ADC_1_SEQUENCER, &ulADC_1_Value);
 
 	if(burstMode){
 		burstData[burstDataCounter++] = 0x4000 | ulADC_1_Value;
@@ -257,8 +257,8 @@ void ADC_1_S3_IntHandler(void){
 	}
 
 	if(sendStream){
-		ADCSequenceEnable(ADC1_BASE, ADC_1_SEQUENCER);
-		ADCProcessorTrigger(ADC1_BASE, ADC_1_SEQUENCER);
+		ROM_ADCSequenceEnable(ADC1_BASE, ADC_1_SEQUENCER);
+		ROM_ADCProcessorTrigger(ADC1_BASE, ADC_1_SEQUENCER);
 	}
 }
 
@@ -333,11 +333,11 @@ void UARTIntHandler(void)
 {
 	unsigned long ulStatus;
 
-	ulStatus = UARTIntStatus(UART0_BASE, true);	//get interrupt status
-	UARTIntClear(UART0_BASE, ulStatus); 		//clear the asserted interrupts
-	while(UARTCharsAvail(UART0_BASE)) 			//loop while there are chars
+	ulStatus = ROM_UARTIntStatus(UART0_BASE, true);	//get interrupt status
+	ROM_UARTIntClear(UART0_BASE, ulStatus); 		//clear the asserted interrupts
+	while(ROM_UARTCharsAvail(UART0_BASE)) 			//loop while there are chars
 	{
-		RXByte = UARTCharGet(UART0_BASE);
+		RXByte = ROM_UARTCharGet(UART0_BASE);
 		Receive();
 	}
 }
@@ -371,7 +371,7 @@ int main(void){
 	ROM_GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
 	//Configure the UART baud rate, data configuration
 	const unsigned long baud = 128000;
-	ROM_UARTConfigSetExpClk(UART0_BASE, SysCtlClockGet(), baud, (UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
+	ROM_UARTConfigSetExpClk(UART0_BASE, ROM_SysCtlClockGet(), baud, (UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
 
 	ROM_IntMasterEnable();
 	ROM_IntEnable(INT_UART0);
